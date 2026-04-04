@@ -1,0 +1,27 @@
+# Vivado junk
+*.cache/
+*.hw/
+*.ip_user_files/
+*.runs/
+*.sim/
+*.log
+*.jou
+*.xpr
+*.dcp
+*.elf
+*.str
+*.pb
+*.wdb
+*.dir
+
+
+# Simulation and Waveform files
+*.vcd
+*.fsdb
+*.fst
+*.vpd
+*.wlf
+simv
+simv.daidir/
+csrc/
+work/
