@@ -63,16 +63,24 @@ module reg_file #(
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n)
             A_out <= '0;
-        else
-            A_out <= mem[A_select];
+        else begin
+            if (wr_enable && wr_addr == A_select)
+                A_out <= A_out;  // Hold — explicit read-first
+            else
+                A_out <= mem[A_select];
+        end
     end
 
     //read B
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n)
             B_out <= '0;
-        else
-            B_out <= mem[B_select];
+        else begin
+            if (wr_enable && wr_addr == B_select)
+                B_out <= B_out;  // Hold — explicit read-first
+            else
+                B_out <= mem[B_select];
+        end
     end
     
 
