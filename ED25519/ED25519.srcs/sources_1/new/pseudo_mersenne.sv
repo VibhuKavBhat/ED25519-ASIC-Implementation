@@ -8,7 +8,7 @@ module pseudo_mersenne (
     // Ed25519 Prime: p = 2^255 - 19
     localparam logic [255:0] PRIME_P = 
         256'h7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFED;
-
+ 
     // ==========================================
     // STAGE 1: 512-bit to ~263-bit Reduction
     // Slice at 256 bits, weight is 38
