@@ -59,91 +59,13 @@ module reg_file #(
             mem[wr_addr] <= data_in;
     end
     
-    //read A
-    always_ff @(posedge clk or negedge rst_n) begin
-        if (!rst_n)
-            A_out <= '0;
-        else begin
-            if (wr_enable && wr_addr == A_select)
-                A_out <= A_out;  // Hold — explicit read-first
-            else
-                A_out <= mem[A_select];
-        end
-    end
+    // Read Port A (Asynchronous / Combinational)
+    // If writing to the same address we are reading, forward the new data (write-through)
+    assign A_out = (wr_enable && wr_addr == A_select) ? data_in : mem[A_select];
 
-    //read B
-    always_ff @(posedge clk or negedge rst_n) begin
-        if (!rst_n)
-            B_out <= '0;
-        else begin
-            if (wr_enable && wr_addr == B_select)
-                B_out <= B_out;  // Hold — explicit read-first
-            else
-                B_out <= mem[B_select];
-        end
-    end
+    // Read Port B (Asynchronous / Combinational)
+    assign B_out = (wr_enable && wr_addr == B_select) ? data_in : mem[B_select];
     
 
-    // =========================================================================
-    // Assertions - synthesizable SVA properties
-    // These fire during simulation to catch protocol violations
-    // =========================================================================
- 
-    /*`ifndef SYNTHESIS
-    
-    // One cycle delay flag after reset deasserts
-        // Prevents false X assertion firing on first read after reset
-        // (first read pulls from uninitialized mem[] into output FF)
-        logic rst_done;
-        always_ff @(posedge clk or negedge rst_n)
-            if (!rst_n) rst_done <= 1'b0;
-            else        rst_done <= 1'b1;
- 
-    // A_out should never be X after reset deasserts
-    property no_x_on_A_out;
-        @(posedge clk) disable iff (!rst_n || !rst_done)
-        !$isunknown(A_out);
-    endproperty
-    assert_no_x_A: assert property (no_x_on_A_out)
-        else $error("[REG_FILE] X detected on A_out at time %0t", $time);
- 
-    // B_out should never be X after reset deasserts
-    property no_x_on_B_out;
-        @(posedge clk) disable iff (!rst_n || !rst_done)
-        !$isunknown(B_out);
-    endproperty
-    assert_no_x_B: assert property (no_x_on_B_out)
-        else $error("[REG_FILE] X detected on B_out at time %0t", $time);
- 
-    // Write address must be within valid range when wr_enable is high
-    property valid_wr_addr;
-        @(posedge clk) disable iff (!rst_n)
-        wr_enable |-> (wr_addr < DEPTH);
-    endproperty
-    assert_wr_addr: assert property (valid_wr_addr)
-        else $error("[REG_FILE] wr_addr %0d out of range at time %0t",
-                     wr_addr, $time);
- 
-    // Read addresses must be within valid range
-    property valid_rd_addr_A;
-        @(posedge clk) disable iff (!rst_n)
-        (A_select < DEPTH);
-    endproperty
-    assert_rd_addr_A: assert property (valid_rd_addr_A)
-        else $error("[REG_FILE] A_select %0d out of range at time %0t",
-                     A_select, $time);
- 
-    property valid_rd_addr_B;
-        @(posedge clk) disable iff (!rst_n)
-        (B_select < DEPTH);
-    endproperty
-    assert_rd_addr_B: assert property (valid_rd_addr_B)
-        else $error("[REG_FILE] B_select %0d out of range at time %0t",
-                     B_select, $time);
- 
-    
-    `endif
-    */
-    
-    
+       
 endmodule
