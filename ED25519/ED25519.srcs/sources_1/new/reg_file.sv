@@ -2,10 +2,10 @@
 // Module:      reg_file.sv
 // Project:     ED25519 Hardware Accelerator
 // Description: 16 x 256-bit Register File
-//              - Synchronous read (SRAM macro compatible)
+//              - Asynchronous (combinational) read ports with write-through forwarding
 //              - Single write port, dual read port
 //              - No reset on storage array (SRAM compatible)
-//              - Reset only on output registers and control logic
+//              - No output registers (async read means zero read latency)
 //              - Active low async assert, sync deassert reset             
 //
 // Register Map:
