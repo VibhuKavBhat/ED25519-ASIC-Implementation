@@ -29,41 +29,40 @@ module alu (
     always_comb begin
         // Default values
         alu_result = 256'd0;
-        sum_full = 257'd0;
+        sum_full   = 257'd0;
         cmp_flag   = 1'b0;
         mult_start = 1'b0;
         
         case (alu_op)
-            3'b000: begin // ADD
+            OP_ADD: begin 
                 alu_result = src_a + src_b;
             end
             
-            3'b001: begin // OP_SUB_CND (Correction Loops)
-                cmp_flag = isolated_cmp_flag;
-                if (cmp_flag) alu_result = src_a - src_b;
-                else          alu_result = src_a;         
+            OP_SUB_CND: begin 
+                cmp_flag   = isolated_cmp_flag;
+                // Lint-safe ternary operator
+                alu_result = isolated_cmp_flag ? (src_a - src_b) : src_a;         
             end
-    
-    
             
-            3'b010: begin // MULT
-                mult_start = 1'b1; // Trigger the external block
+            OP_MULT: begin 
+                mult_start = 1'b1; 
                 alu_result = sel_hi ? mult_product[511:256] : mult_product[255:0];
             end
             
-            3'b011: begin // CMP (A >= B)
-                cmp_flag = (src_a >= src_b);
-                alu_result = src_a; // Pass through A
+            OP_CMP: begin 
+                cmp_flag   = isolated_cmp_flag; // 1 if A >= B
+                alu_result = src_a; 
             end
             
-            3'b100: begin // PASS A
+            OP_PASS: begin 
                 alu_result = src_a;
             end
 
-            3'b101: begin // OP_SUB_RAW (Initial Remainder Modulo Wrap)
-            sum_full   = {1'b0, src_a} - {1'b0, src_b};
-            alu_result = sum_full[255:0]; // Safely wraps modulo 2^256
-            cmp_flag   = sum_full[256]; 
+            OP_SUB_RAW: begin 
+                sum_full   = {1'b0, src_a} - {1'b0, src_b};
+                alu_result = sum_full[255:0]; 
+                // Inverted so cmp_flag consistently means A >= B across all ops
+                cmp_flag   = ~sum_full[256]; 
             end
 
             default: alu_result = 256'd0;
