@@ -3,18 +3,7 @@
 // =============================================================================
 // Testbench: tb_golden_top
 // DUT:       top_ed25519
-// Vector:    TV3 — Custom Bootloader Sequence
-//
-// pubKey = 65aca07edafd4c58ad156f5ab8c47add5f1a6036339133e160edfa654087b234
-// sig_R  = 2a06b3b03e37ffce5b5f688a4e42d562f7ea59f804e6f443b5a0821a14defa68
-// sig_S  = e0c52a27f59fd2fd971c5d4ac97da751d2b28568f1169ec8cee73616f1e2ac0c
-// hash   = 2b923230ddff5b8afc30db54fadc2ea54671cc40b76855f09eb620718f97a112
-//          8b2283f771ce4fc7f28b755e103040dc20fe324f910c72ebdf5e52bba7901ae1
-//
-// Register pre-load strategy:
-//   The reg_file has no dedicated init port. We use SystemVerilog hierarchical
-//   references to directly initialise mem[] before reset is released.
-//   All writes happen while rst_n=0, so the FSM never sees a partial state.
+// Mode:      Automated 1,000-Vector Fuzzer / Stress Test
 // =============================================================================
 
 module tb_golden_top;
@@ -55,12 +44,10 @@ module tb_golden_top;
     // -------------------------------------------------------------------------
     // Hierarchical shorthand for the register file memory array
     // -------------------------------------------------------------------------
-    // Adjust the path if your elaborator uses a different hierarchy separator.
     `define MEM dut.u_regs.mem
 
     // -------------------------------------------------------------------------
-    // Constants (all values already in little-endian integer form as the
-    // Python model uses int.from_bytes(..., 'little'))
+    // Constants (Untouched)
     // -------------------------------------------------------------------------
 
     // --- Curve / hardware constants ---
@@ -98,7 +85,7 @@ module tb_golden_top;
     localparam logic [255:0] BARRETT_MU_LO = 
         256'hffffffffffffffffffffffffffffffeb2106215d086329a7ed9ce5a30a2c131b;
 
-    // --- Endian-Corrected SystemVerilog Constants ---
+    // --- Endian-Corrected SystemVerilog Constants (TV3 left for reference) ---
     localparam logic [255:0] TV3_PUB_KEY =
         256'h34b2874065faed60e133913336601a5fdd7ac4b85a6f15ad584cfdda7ea0ac65;
 
@@ -108,18 +95,16 @@ module tb_golden_top;
     localparam logic [255:0] TV3_SIG_S =
         256'h0cace2f11636e7cec89e16f16885b2d251a77dc94a5d1c97fdd29ff5272ac5e0;
 
-    // HASH_LO is the reversed FIRST 32 bytes of the SHA-512 digest
     localparam logic [255:0] HASH_LO =
         256'h12a1978f7120b69ef05568b740cc7146a52edcfa54db30fc8a5bffdd3032922b;
 
-    // HASH_HI is the reversed LAST 32 bytes of the SHA-512 digest
     localparam logic [255:0] HASH_HI =
         256'he11a90a7bb525edfeb720c914f32fe20dc4030105e758bf2c74fce71f783228b;
 
     // -------------------------------------------------------------------------
-    // Timeout watchdog
+    // Timeout watchdog (Increased to 250M for 1000 vectors)
     // -------------------------------------------------------------------------
-    localparam integer TIMEOUT_CYCLES = 5_000_000;
+    localparam integer TIMEOUT_CYCLES = 250_000_000; 
     integer cycle_count = 0;
 
     always @(posedge clk) begin
@@ -131,105 +116,94 @@ module tb_golden_top;
     end
 
     // -------------------------------------------------------------------------
+    // Stress Test Memory & Loop Variables
+    // -------------------------------------------------------------------------
+    // 1288 bits: [1287:1280] = Flag, [1279:1024] = PubKey, [1023:768] = R, 
+    //            [767:512] = S, [511:256] = Hash_Lo, [255:0] = Hash_Hi
+    logic [1287:0] vector_mem [0:999];
+    logic          expected_valid;
+    integer        i;
+
+    // -------------------------------------------------------------------------
     // Main stimulus
     // -------------------------------------------------------------------------
     initial begin
-        // ------------------------------------------------------------------
-        // 1. Hold reset, pre-load register file via hierarchical reference
-        //    All writes are invisible to the FSM while rst_n=0.
-        // ------------------------------------------------------------------
-        rst_n = 0;
-        @(posedge clk); #1;    // let elaboration settle
-
-        // --- Hardware constants (persistent zone, REG 24-28) ---
-        `MEM[24] = CONST_ZERO;       // zero
-        `MEM[25] = CONST_ONE;        // one
-        `MEM[26] = CURVE_D;          // Edwards d
-        `MEM[27] = CURVE_2D;         // 2d
-        `MEM[28] = SQRT_M1;          // sqrt(-1)
-
-        // --- Base point G (REG 4-7) ---
-        `MEM[4]  = G_X;
-        `MEM[5]  = G_Y;
-        `MEM[6]  = G_Z;
-        `MEM[7]  = G_T;
-
-        // --- Barrett constants for mod-L reduction (REG 8-12) ---
-        // Seq 0 (Barrett reduction) reads:
-        //   REG[8]  = hash_lo   (H lo-256)
-        //   REG[9]  = hash_hi   (H hi-256)
-        //   REG[10] = mu_hi
-        //   REG[11] = L  (curve order)
-        //   REG[12] = mu_lo
-        `MEM[8]  = HASH_LO;
-        `MEM[9]  = HASH_HI;
-        `MEM[10] = BARRETT_MU_HI;
-        `MEM[11] = CURVE_ORDER_L;
-        `MEM[12] = BARRETT_MU_LO;
-
-        // --- Test vector inputs ---
-        `MEM[20] = TV3_SIG_R;        // compressed R
-        `MEM[21] = TV3_PUB_KEY;      // compressed A (pubKey)
-        `MEM[23] = TV3_SIG_S;        // scalar s
+        $readmemh("stress_vectors.mem", vector_mem);
 
         $display("=============================================================");
-        $display("  TB: Register file pre-loaded.");
-        $display("  TV3 — Custom Bootloader Sequence");
-        $display("  pubKey = %h", TV3_PUB_KEY);
-        $display("  sig_R  = %h", TV3_SIG_R);
-        $display("  sig_S  = %h", TV3_SIG_S);
-        $display("  H_lo   = %h", HASH_LO);
-        $display("  H_hi   = %h", HASH_HI);
+        $display("  Starting 1,000-Vector Stress Test Gauntlet...");
         $display("=============================================================");
 
         // ------------------------------------------------------------------
-        // 2. Release reset
+        // The 1,000-Vector Gauntlet
         // ------------------------------------------------------------------
-        repeat (4) @(posedge clk);
-        rst_n = 1;
-        $display("[%0t] Reset released.", $time);
+        for (i = 0; i < 1000; i++) begin
+            
+            // 1. HARD RESET (Clears FSM states and verify_done flags)
+            rst_n = 0;
+            @(posedge clk); #1; 
+            rst_n = 1;
+            @(posedge clk); #1;
+
+            // 2. RELOAD STATIC CONSTANTS (Reset likely wiped the register file)
+            `MEM[24] = CONST_ZERO;       
+            `MEM[25] = CONST_ONE;        
+            `MEM[26] = CURVE_D;          
+            `MEM[27] = CURVE_2D;         
+            `MEM[28] = SQRT_M1;          
+            `MEM[4]  = G_X;
+            `MEM[5]  = G_Y;
+            `MEM[6]  = G_Z;
+            `MEM[7]  = G_T;
+            `MEM[10] = BARRETT_MU_HI;
+            `MEM[11] = CURVE_ORDER_L;
+            `MEM[12] = BARRETT_MU_LO;
+
+            // 3. LOAD DYNAMIC VECTOR DATA
+            expected_valid = vector_mem[i][1280]; 
+            `MEM[21] = vector_mem[i][1279:1024];  // pubKey
+            `MEM[20] = vector_mem[i][1023:768];   // sig_R
+            `MEM[23] = vector_mem[i][767:512];    // sig_S
+            `MEM[8]  = vector_mem[i][511:256];    // HASH_LO
+            `MEM[9]  = vector_mem[i][255:0];      // HASH_HI
+
+            // 4. PULSE START
+            @(posedge clk); #1;
+            start_verify = 1;
+            @(posedge clk); #1;
+            start_verify = 0;
+
+            // 5. WAIT FOR COMPUTATION
+            wait (verify_done === 1'b1);
+            @(posedge clk); 
+
+            // 6. CHECK RESULTS
+            if (signature_valid !== expected_valid) begin
+                $display("\n=============================================================");
+                $display("  [FATAL ERROR] Silicon Mismatch on Stress Vector %0d!", i);
+                $display("  Expected valid = %0b | Hardware output = %0b", expected_valid, signature_valid);
+                $display("=============================================================");
+                $stop;
+            end
+
+            // Print progress
+            if (i % 10 == 0 || i == 999) begin
+                $display("  [%0t] Passed %0d / 1000 vectors...", $time, i + 1);
+            end
+
+            // Small delay before next vector resets
+            repeat(5) @(posedge clk);
+        end
 
         // ------------------------------------------------------------------
-        // 3. Pulse start_verify for one cycle
+        // Report Final Victory
         // ------------------------------------------------------------------
-        @(posedge clk); #1;
-        start_verify = 1;
-        @(posedge clk); #1;
-        start_verify = 0;
-        $display("[%0t] start_verify pulsed — FSM running.", $time);
-
-        // ------------------------------------------------------------------
-        // 4. Wait for verify_done
-        // ------------------------------------------------------------------
-        @(posedge clk);
-        wait (verify_done === 1'b1);
-        @(posedge clk); // let signature_valid settle
-
-        // ------------------------------------------------------------------
-        // 5. Report result
-        // ------------------------------------------------------------------
-        $display("=============================================================");
-        if (signature_valid === 1'b1)
-            $display("  [PASS] VALID Ed25519 signature — signature_valid = 1");
-        else
-            $display("  [FAIL] INVALID signature — signature_valid = 0");
-        $display("  Total cycles: %0d", cycle_count);
-        $display("=============================================================");
-
-        // ------------------------------------------------------------------
-        // 6. Optional: dump a few internal registers for debug
-        // ------------------------------------------------------------------
-        $display("\n--- Key register dump (post-verification) ---");
-        $display("  REG[16] h scalar = %h", `MEM[16]);
-        $display("  REG[17] P1_X     = %h", `MEM[17]);
-        $display("  REG[18] P1_Y     = %h", `MEM[18]);
-        $display("  REG[19] P1_Z     = %h", `MEM[19]);
-        $display("  REG[0]  P2_X     = %h", `MEM[0]);
-        $display("  REG[1]  P2_Y     = %h", `MEM[1]);
-        $display("  REG[2]  P2_Z     = %h", `MEM[2]);
-        $display("  REG[20] R_X      = %h", `MEM[20]);
-        $display("  REG[21] R_Y      = %h", `MEM[21]);
-
+        $display("\n=============================================================");
+        $display("  🏆 [SUCCESS] TAPE-OUT READY 🏆");
+        $display("  All 1,000 Positive & Negative Stress Vectors Passed.");
+        $display("  Total cycles elapsed: %0d", cycle_count);
+        $display("=============================================================\n");
+        
         $finish;
     end
 

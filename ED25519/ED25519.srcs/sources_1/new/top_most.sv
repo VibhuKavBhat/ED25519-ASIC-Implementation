@@ -7,6 +7,11 @@ module fpga_demo_top (
     output logic demo_done,
     output logic signature_valid
 );
+  //  logic clk;
+  //  clk_wiz_0 u_clock_divider (
+  //      .clk_in1  (clk_100mhz), // Raw 100MHz from the board goes IN
+  //      .clk_out1 (clk)         // The safe 20MHz clock comes OUT and takes over the "clk" name
+  //  );
 
     // --------------------------------------------------------
     // Byte Swap Helper (Fixes Little-Endian requirements)
@@ -44,12 +49,31 @@ module fpga_demo_top (
     logic [4:0]   sha_read_idx;
     logic [3:0]   read_count;
 
+    // --- Ed25519 Hardware Constants ---
+    localparam logic [255:0] CONST_ZERO = 256'd0;
+    localparam logic [255:0] CONST_ONE  = 256'd1;
+    localparam logic [255:0] CURVE_D    = 256'h52036cee2b6ffe738cc740797779e89800700a4d4141d8ab75eb4dca135978a3;
+    localparam logic [255:0] CURVE_2D   = 256'h2406d9dc56dffce7198e80f2eef3d13000e0149a8283b156ebd69b9426b2f159;
+    localparam logic [255:0] SQRT_M1    = 256'h2b8324804fc1df0b2b4d00993dfbd7a72f431806ad2fe478c4ee1b274a0ea0b0;
+    localparam logic [255:0] G_X        = 256'h216936d3cd6e53fec0a4e231fdd6dc5c692cc7609525a7b2c9562d608f25d51a;
+    localparam logic [255:0] G_Y        = 256'h6666666666666666666666666666666666666666666666666666666666666658;
+    localparam logic [255:0] G_Z        = 256'd1;
+    localparam logic [255:0] G_T        = 256'h67875f0fd78b766566ea4e8e64abe37d20f09f80775152f56dde8ab3a5b7dda3;
+    localparam logic [255:0] MU_HI      = 256'h000000000000000000000000000000000000000000000000000000000000000f;
+    localparam logic [255:0] MU_LO      = 256'hffffffffffffffffffffffffffffffeb2106215d086329a7ed9ce5a30a2c131b;
+    localparam logic [255:0] CURVE_L    = 256'h1000000000000000000000000000000014def9dea2f79cd65812631a5cf5d3ed;
+
+    // A counter to step through the 12 constants
+    logic [3:0] const_idx;
+
     // --------------------------------------------------------
     // FSM States
     // --------------------------------------------------------
     typedef enum logic [4:0] {
         ST_IDLE,
-        ST_READ_LEN,
+        ST_READ_LEN,       
+        ST_LOAD_CONST_REQ,  
+        ST_LOAD_CONST_ACK,  
         ST_WAIT_LEN,
         ST_READ_S_REQ,
         ST_READ_S_ACK,
@@ -131,8 +155,44 @@ module fpga_demo_top (
                     demo_done <= 1'b0;
                     ed_ext_we <= 1'b0;
                     if (start_demo) begin
-                        bram_addr <= 16'd0; 
-                        state     <= ST_READ_LEN;
+                        const_idx <= 4'd0;         // Reset constant counter
+                        state     <= ST_LOAD_CONST_REQ;
+                    end
+                end
+
+                // --- 0. The Constants Bootloader ---
+                ST_LOAD_CONST_REQ: begin
+                    ed_ext_we   <= 1'b1;           // Turn on the external write override
+                    ed_data_sel <= 2'b01;          // Route ext_data_1 into the register file
+                    
+                    // Route the correct constant to the correct register
+                    case (const_idx)
+                        4'd0:  begin ed_ext_dest_sel <= 5'd24; ed_ext_data_1 <= CONST_ZERO; end
+                        4'd1:  begin ed_ext_dest_sel <= 5'd25; ed_ext_data_1 <= CONST_ONE;  end
+                        4'd2:  begin ed_ext_dest_sel <= 5'd26; ed_ext_data_1 <= CURVE_D;    end
+                        4'd3:  begin ed_ext_dest_sel <= 5'd27; ed_ext_data_1 <= CURVE_2D;   end
+                        4'd4:  begin ed_ext_dest_sel <= 5'd28; ed_ext_data_1 <= SQRT_M1;    end
+                        4'd5:  begin ed_ext_dest_sel <= 5'd4;  ed_ext_data_1 <= G_X;        end
+                        4'd6:  begin ed_ext_dest_sel <= 5'd5;  ed_ext_data_1 <= G_Y;        end
+                        4'd7:  begin ed_ext_dest_sel <= 5'd6;  ed_ext_data_1 <= G_Z;        end
+                        4'd8:  begin ed_ext_dest_sel <= 5'd7;  ed_ext_data_1 <= G_T;        end
+                        4'd9:  begin ed_ext_dest_sel <= 5'd10; ed_ext_data_1 <= MU_HI;      end
+                        4'd10: begin ed_ext_dest_sel <= 5'd11; ed_ext_data_1 <= CURVE_L;    end
+                        4'd11: begin ed_ext_dest_sel <= 5'd12; ed_ext_data_1 <= MU_LO;      end
+                        default: begin ed_ext_dest_sel <= 5'd0; ed_ext_data_1 <= 256'd0;    end
+                    endcase
+                    
+                    state <= ST_LOAD_CONST_ACK;
+                end
+
+                ST_LOAD_CONST_ACK: begin
+                    if (const_idx == 4'd11) begin
+                        ed_ext_we <= 1'b0;         // Turn off external write!
+                        bram_addr <= 16'd0;        // Setup BRAM address 0
+                        state     <= ST_READ_LEN;  // Move to the next phase
+                    end else begin
+                        const_idx <= const_idx + 1;
+                        state     <= ST_LOAD_CONST_REQ;
                     end
                 end
 
@@ -187,7 +247,7 @@ module fpga_demo_top (
 
                 ST_SHA_FEED_WRITE: begin
                     sha_addr  <= {1'b0, words_sent[4:0]}; 
-                    sha_wdata <= bram_dout;               
+                    sha_wdata <= bswap(bram_dout);               
                     sha_wen   <= 1'b1;
                     
                     // Sneakily capture R and PubKey while feeding SHA
@@ -269,6 +329,7 @@ module fpga_demo_top (
                 // --- 6. Kick Off Verification ---
                 ST_ED_START: begin
                     ed_ext_we <= 1'b0;  // Release override
+                    ed_data_sel <= 2'b00;
                     ed_start  <= 1'b1;
                     state     <= ST_ED_WAIT;
                 end

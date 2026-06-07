@@ -83,8 +83,8 @@ module reg_file #(
     parameter DEPTH = 32,
     parameter ADDR_W = $clog2(DEPTH)
 )(
-    input logic clk,  
-    
+    input logic clk,      
+
     //Write
     input logic wr_enable,
     input logic [ADDR_W-1:0] wr_addr,
