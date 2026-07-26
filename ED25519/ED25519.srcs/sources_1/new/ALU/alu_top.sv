@@ -1,3 +1,7 @@
+//Documentation and verification done? Yes
+//Name of last verifier: Vibhu
+//Date: 26/07/2026
+
 module alu_top (
     input  logic         clk,
     input  logic         rst_n,
@@ -5,14 +9,14 @@ module alu_top (
     input  logic [255:0] src_b,
     input  logic [2:0]   alu_op,
     input  logic         sel_hi,
-    input  logic         mult_kick,
+    input  logic         mult_kick, //to start off multiplication
     input  logic         mod_p_en,
     
     output logic [255:0] alu_result,
     output logic         cmp_flag,
     output logic         cmp_eq,
     output logic         mult_done,
-    output logic         x_sign
+    output logic         x_sign //sign of the x coordinate (before decompression)
 );
     localparam logic [2:0] OP_LOAD_COMPRESSED = 3'b110;
 
@@ -38,7 +42,7 @@ module alu_top (
     );
 
     // --- The Sign Bit Status Register ---
-    // <-- NEW: Dedicated flip-flop to hold the sign bit across multiple cycles
+    // --- Dedicated flip-flop to hold the sign bit (the x coordinate before decompression) across multiple cycles
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
             x_sign <= 1'b0;

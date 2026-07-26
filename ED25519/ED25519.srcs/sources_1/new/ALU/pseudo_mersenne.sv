@@ -1,5 +1,10 @@
 `timescale 1ns / 1ps
 
+//Documentation and verification done? Yes
+//Name of last verifier: Vibhu
+//Date: 26/07/2026
+//Things to possibly improve: A huge combinational path currently, add sequential elements
+
 module pseudo_mersenne (
     input  logic [511:0] data_in,
     output logic [255:0] data_out

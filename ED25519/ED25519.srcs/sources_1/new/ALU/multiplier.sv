@@ -4,6 +4,12 @@
 // Architecture: Iterative 64x64 schoolbook method.
 // Latency: 18 cycles fixed (1 cycle setup + 16 multiply cycles + 1 flush cycle)
 // 
+// Documentation and Verification? Done
+// Name of last verifier? Arya
+// Date: xx/05/2026
+// Things to possibly improve? Improve performance of multiplier and reduce cycle count
+//
+//
 // Protocol: 
 // - Assert 'start' to begin. 
 // - 'done' will assert when calculation is complete and hold HIGH.

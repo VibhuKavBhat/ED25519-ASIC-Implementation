@@ -1,3 +1,7 @@
+//Documentation and verification done? Yes
+//Name of last verifier: Vibhu
+//Date: 26/07/2026
+
 module alu (
     input  logic [255:0] src_a,
     input  logic [255:0] src_b,
@@ -117,6 +121,10 @@ module alu (
             end
 
             OP_LOAD_COMPRESSED: begin 
+                //This is used when u want to decompress a coordinate
+                // the top most bit is used for a sign of the x coord, rest for the y coordinate
+
+
                 // 1. Mask out bit 255 (force it to 0), pass the remaining 255 bits
                 alu_result = {1'b0, src_a[254:0]}; 
                 
