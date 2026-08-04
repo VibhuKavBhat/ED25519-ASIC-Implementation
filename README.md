@@ -1,7 +1,7 @@
 # ED25519-ASIC-Implementation
 
 ## Project Overview
-This repository contains a high-performance, area-optimized hardware accelerator for Ed25519 digital signature verification. Targeted for integration into resource-constrained environments like 65nm RISC-V IoT SoCs, the core provides complete hardware offloading for the complex elliptic curve cryptography (ECC) and hashing operations required to authenticate signatures. 
+This repository contains a high-performance, area-optimized hardware accelerator for Ed25519 digital signature verification. Targeted for integration into resource-constrained environments like 22nm RISC-V IoT SoCs, the core provides complete hardware offloading for the complex elliptic curve cryptography (ECC) and hashing operations required to authenticate signatures. 
 
 ## Architecture & Key Features
 To balance silicon footprint and computational throughput, the design relies on a shared-resource datapath orchestrated by a dual-level control scheme. 
