@@ -6,11 +6,12 @@ This repository contains a high-performance, area-optimized hardware accelerator
 ## Architecture & Key Features
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="assets/ED25519_dark.png">
-    <source media="(prefers-color-scheme: light)" srcset="assets/ED25519_light.png">
-    <!-- The img tag acts as the fallback for environments that don't support the picture tag -->
-    <img alt="1TOPS Ed25519 Microarchitecture Block Diagram" src="assets/microarch_light.png" width="80%">
+    <source media="(prefers-color-scheme: dark)" srcset="docs/ED25519_dark.png">
+    <source media="(prefers-color-scheme: light)" srcset="docs/ED25519_light.png">
+    <img alt="1TOPS Ed25519 Microarchitecture Block Diagram" src="docs/ED25519_light.png" width="700">
   </picture>
+  <br>
+  <em>Fig 1. Custom Microarchitecture of the Ed25519 Accelerator</em>
 </p>
 To balance silicon footprint and computational throughput, the design relies on a shared-resource datapath orchestrated by a dual-level control scheme. 
 
