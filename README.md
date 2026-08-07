@@ -52,8 +52,9 @@ This repository uses a version-controlled Tcl workflow to manage the Vivado proj
 
 ```text
 ├── docs/                  # Block diagrams and visual assets
-├── ED25519.srcs/          # Core Verilog/SystemVerilog RTL source files
-├── build_project.tcl      # Script to generate the local Vivado project
+├── ED25519/               # Core Verilog/SystemVerilog RTL source files and build scripts
+├── ED25519_demo/          # Pre-generated bitstreams (signed/unsigned) for quick FPGA testing
+├── Firmware/              # Python scripts, keys, and memory files for firmware signing
 └── README.md
 ```
 
