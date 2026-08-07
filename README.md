@@ -4,6 +4,14 @@
 This repository contains a high-performance, area-optimized hardware accelerator for Ed25519 digital signature verification. Targeted for integration into resource-constrained environments like 22nm RISC-V IoT SoCs, the core provides complete hardware offloading for the complex elliptic curve cryptography (ECC) and hashing operations required to authenticate signatures. 
 
 ## Architecture & Key Features
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/ED25519_dark.png">
+    <source media="(prefers-color-scheme: light)" srcset="assets/ED25519_light.png">
+    <!-- The img tag acts as the fallback for environments that don't support the picture tag -->
+    <img alt="1TOPS Ed25519 Microarchitecture Block Diagram" src="assets/microarch_light.png" width="80%">
+  </picture>
+</p>
 To balance silicon footprint and computational throughput, the design relies on a shared-resource datapath orchestrated by a dual-level control scheme. 
 
 *   **Microcoded Control Logic**: The execution flow is governed by a two-tier finite state machine. The `master_fsm` handles macro-level ECC operations (such as point decompression, scalar multiplication, and the final $P_1 == P_2$ authentication check). It interfaces with a ROM-driven `micro_sequencer` that issues atomic, cycle-by-cycle routing commands to the datapath.
