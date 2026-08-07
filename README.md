@@ -23,9 +23,44 @@ To balance silicon footprint and computational throughput, the design relies on 
 
 ---
 
+## Performance & Synthesis Results
+
+We prototyped the design on a **Xilinx Artix-7** FPGA to test it before targeting the final TSMC 22nm tapeout. 
+
+| Metric | Result |
+| :--- | :--- |
+| **Platform** | Xilinx Artix-7 |
+| **Clock Speed** | 20 MHz |
+| **Hardware Area (LUTs)**| 9,289 |
+| **Hardware Area (FFs)** | 1,842 |
+| **Verification Time** | ~200,000 clock cycles |
+
+### Benchmark Comparison
+
+Compared to standard hardware designs, this architecture is both faster and takes up less physical space on the chip:
+
+*   **33% faster** (requires fewer clock cycles to verify a signature).
+*   **16% smaller** physical footprint.
+
+> *Baseline metrics compared against the [2019 ACM benchmark paper](https://dl.acm.org/doi/abs/10.1145/3312742).*
+
+---
+
+## Repository Structure
+
+This repository uses a version-controlled Tcl workflow to manage the Vivado project without cluttering the tree with cache files. 
+
+```text
+├── docs/                  # Block diagrams and visual assets
+├── ED25519.srcs/          # Core Verilog/SystemVerilog RTL source files
+├── build_project.tcl      # Script to generate the local Vivado project
+└── README.md
+```
+
 ## Hardware Developer Workflow
 
 This project uses a version-controlled Tcl workflow to keep the repository clean. **Do not push `.xpr`, `.cache`, or `.runs` folders to GitHub.**
+
 
 ### How to Build the Project
 When you pull new code from GitHub, you must regenerate your local Vivado project:
